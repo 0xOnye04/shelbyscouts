@@ -164,7 +164,7 @@ async function waitForShelbyBlobRegistration({
   accountAddress: string;
   blobName: string;
 }) {
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     const metadata = await client.coordination.getBlobMetadata({
       account: accountAddress,
       name: blobName,
@@ -174,7 +174,7 @@ async function waitForShelbyBlobRegistration({
       return metadata;
     }
 
-    await sleep(1500);
+    await sleep(2000);
   }
 
   throw new Error(

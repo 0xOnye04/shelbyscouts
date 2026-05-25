@@ -95,6 +95,60 @@ function mapShelbyProgress(progress: PutBlobProgress): DirectShelbyUploadProgres
   };
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isShelbyRegistrationPropagationError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return (
+    message.includes("has not been registered onto the L1") ||
+    message.includes("Failed to start multipart upload")
+  );
+}
+
+async function uploadBlobWithRegistrationRetry({
+  rpcClient,
+  accountAddress,
+  blobName,
+  file,
+  onProgress,
+}: {
+  rpcClient: ShelbyRPCClient;
+  accountAddress: string;
+  blobName: string;
+  file: File;
+  onProgress?: (progress: DirectShelbyUploadProgress) => void;
+}) {
+  const maxAttempts = 10;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await rpcClient.putBlob({
+        account: accountAddress,
+        blobName,
+        blobData: file.stream() as ReadableStream<Uint8Array>,
+        totalBytes: file.size,
+        onProgress: (progress) => {
+          onProgress?.(mapShelbyProgress(progress));
+        },
+      });
+      return;
+    } catch (error) {
+      if (!isShelbyRegistrationPropagationError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      onProgress?.({
+        phase: "registering",
+        progress: Math.min(58, 40 + attempt * 2),
+      });
+      await sleep(4000);
+    }
+  }
+}
+
 export async function uploadVideoDirectlyToShelby({
   file,
   title,
@@ -144,14 +198,12 @@ export async function uploadVideoDirectlyToShelby({
 
   onProgress?.({ phase: "uploading", progress: 45 });
 
-  await rpcClient.putBlob({
-    account: prepared.upload.accountAddress,
+  await uploadBlobWithRegistrationRetry({
+    rpcClient,
+    accountAddress: prepared.upload.accountAddress,
     blobName: prepared.upload.blobName,
-    blobData: file.stream() as ReadableStream<Uint8Array>,
-    totalBytes: file.size,
-    onProgress: (progress) => {
-      onProgress?.(mapShelbyProgress(progress));
-    },
+    file,
+    onProgress,
   });
 
   onProgress?.({ phase: "finalizing", progress: 97 });
