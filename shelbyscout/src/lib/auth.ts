@@ -1,4 +1,3 @@
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { Session, User } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -10,7 +9,6 @@ function getUserRole(role?: string | null): "PLAYER" | "SCOUT" {
 }
 
 export const authOptions = {
-  adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" as const },
   providers: [
     CredentialsProvider({
