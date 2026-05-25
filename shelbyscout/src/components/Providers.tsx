@@ -2,15 +2,17 @@
 
 import { Network } from "@aptos-labs/ts-sdk";
 import { AptosWalletAdapterProvider } from "@aptos-labs/wallet-adapter-react";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, type SessionProviderProps } from "next-auth/react";
 
 export default function Providers({
   children,
+  session,
 }: {
   children: React.ReactNode;
+  session?: SessionProviderProps["session"];
 }) {
   return (
-    <SessionProvider>
+    <SessionProvider session={session} refetchOnWindowFocus>
       <AptosWalletAdapterProvider
         autoConnect
         dappConfig={{ network: Network.TESTNET }}
