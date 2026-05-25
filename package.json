@@ -2,13 +2,14 @@
   "name": "shelbyscout-workspace",
   "private": true,
   "scripts": {
-    "dev": "cd shelbyscout && npm run dev",
-    "build": "cd shelbyscout && npm run build",
-    "lint": "cd shelbyscout && npm run lint",
-    "start": "cd shelbyscout && npm run start",
-    "prisma:generate": "cd shelbyscout && npm run prisma:generate",
-    "db:push": "cd shelbyscout && npm run db:push",
-    "db:seed": "cd shelbyscout && npm run db:seed",
-    "db:studio": "cd shelbyscout && npm run db:studio"
+    "postinstall": "npm --prefix shelbyscout install",
+    "dev": "npm --prefix shelbyscout run dev",
+    "build": "npm --prefix shelbyscout run build",
+    "lint": "npm --prefix shelbyscout run lint",
+    "start": "npm --prefix shelbyscout run start",
+    "prisma:generate": "npm --prefix shelbyscout run prisma:generate",
+    "db:push": "npm --prefix shelbyscout run db:push",
+    "db:seed": "npm --prefix shelbyscout run db:seed",
+    "db:studio": "npm --prefix shelbyscout run db:studio"
   }
 }
