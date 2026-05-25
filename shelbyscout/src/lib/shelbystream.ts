@@ -19,6 +19,7 @@ export type ShelbyFileUploadResult = {
 };
 
 export type PreparedShelbyUpload = {
+  network: "SHELBYNET" | "TESTNET" | "LOCAL";
   accountAddress: string;
   blobName: string;
   url: string;
@@ -42,6 +43,18 @@ function getShelbyNetwork() {
   }
 
   return Network.TESTNET;
+}
+
+function getShelbyNetworkName(): PreparedShelbyUpload["network"] {
+  if (process.env.SHELBY_NETWORK === "LOCAL") {
+    return "LOCAL";
+  }
+
+  if (process.env.SHELBY_NETWORK === "TESTNET") {
+    return "TESTNET";
+  }
+
+  return "SHELBYNET";
 }
 
 function readEnv(name: string) {
@@ -336,6 +349,7 @@ export async function prepareShelbyVideoUpload({
   );
 
   return {
+    network: getShelbyNetworkName(),
     accountAddress,
     blobName,
     url: `/api/shelby/blob?account=${encodeURIComponent(accountAddress)}&name=${encodeURIComponent(blobName)}`,

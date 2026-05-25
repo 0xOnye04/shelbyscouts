@@ -92,6 +92,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       video,
       upload: {
+        network: media.network,
         accountAddress: media.accountAddress,
         blobName: media.blobName,
         url: media.url,

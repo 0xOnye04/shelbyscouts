@@ -29,6 +29,7 @@ type PrepareResponse = {
     storageAssetId?: string | null;
   };
   upload: {
+    network: "SHELBYNET" | "TESTNET" | "LOCAL";
     accountAddress: string;
     blobName: string;
     url: string;
@@ -37,16 +38,28 @@ type PrepareResponse = {
   };
 };
 
-function getShelbyNetwork() {
-  if (process.env.NEXT_PUBLIC_SHELBY_NETWORK === "SHELBYNET") {
+function getShelbyNetwork(network?: PrepareResponse["upload"]["network"]) {
+  if (network === "SHELBYNET") {
     return Network.SHELBYNET;
+  }
+
+  if (network === "LOCAL") {
+    return Network.LOCAL;
+  }
+
+  if (network === "TESTNET") {
+    return Network.TESTNET;
+  }
+
+  if (process.env.NEXT_PUBLIC_SHELBY_NETWORK === "TESTNET") {
+    return Network.TESTNET;
   }
 
   if (process.env.NEXT_PUBLIC_SHELBY_NETWORK === "LOCAL") {
     return Network.LOCAL;
   }
 
-  return Network.TESTNET;
+  return Network.SHELBYNET;
 }
 
 function getShelbyPublicApiKey() {
@@ -188,7 +201,7 @@ export async function uploadVideoDirectlyToShelby({
 
   const apiKey = getShelbyPublicApiKey();
   const rpcClient = new ShelbyRPCClient({
-    network: getShelbyNetwork(),
+    network: getShelbyNetwork(prepared.upload.network),
     apiKey,
     rpc: {
       apiKey,
