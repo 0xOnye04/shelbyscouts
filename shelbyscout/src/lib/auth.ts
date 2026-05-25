@@ -1,4 +1,5 @@
 import type { Session, User } from "next-auth";
+import type { User as PrismaUser } from "@prisma/client";
 import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -22,9 +23,16 @@ export const authOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        let user: PrismaUser | null = null;
+
+        try {
+          user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
+        } catch (error) {
+          console.error("Unable to authorize credentials", error);
+          return null;
+        }
 
         if (!user?.hashedPassword) {
           return null;

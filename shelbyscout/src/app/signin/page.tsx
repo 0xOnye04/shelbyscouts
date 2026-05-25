@@ -17,11 +17,20 @@ export default function SignInPage() {
     setLoading(true);
     setError(null);
 
-    const result = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
+    let result = null;
+
+    try {
+      result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+    } catch (error) {
+      console.error("Signin request failed", error);
+      setLoading(false);
+      setError("Unable to reach the signin service. Check the Vercel server logs.");
+      return;
+    }
 
     setLoading(false);
 
