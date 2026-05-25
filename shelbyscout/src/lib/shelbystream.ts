@@ -151,6 +151,37 @@ async function getShelbyTimestamps(client: ShelbyNodeClient) {
   };
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForShelbyBlobRegistration({
+  client,
+  accountAddress,
+  blobName,
+}: {
+  client: ShelbyNodeClient;
+  accountAddress: string;
+  blobName: string;
+}) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const metadata = await client.coordination.getBlobMetadata({
+      account: accountAddress,
+      name: blobName,
+    });
+
+    if (metadata) {
+      return metadata;
+    }
+
+    await sleep(1500);
+  }
+
+  throw new Error(
+    "Shelby registered the blob transaction, but storage cannot see it yet. Please retry the upload in a few seconds."
+  );
+}
+
 export async function uploadVideoToShelby(
   file: File,
   title: string,
@@ -287,12 +318,22 @@ export async function prepareShelbyVideoUpload({
 
     await client.aptos.waitForTransaction({
       transactionHash: transaction.hash,
+      options: { waitForIndexer: true },
     });
   }
 
   const accountAddress = signer.accountAddress.toString();
+  const metadata = await waitForShelbyBlobRegistration({
+    client,
+    accountAddress,
+    blobName,
+  });
   const storageAssetId = `${accountAddress}/${blobName}`;
-  const storageProof = getShelbyStorageProof(accountAddress, blobName, blobMerkleRoot);
+  const storageProof = getShelbyStorageProof(
+    accountAddress,
+    blobName,
+    toHex(metadata?.blobMerkleRoot) || blobMerkleRoot
+  );
 
   return {
     accountAddress,
