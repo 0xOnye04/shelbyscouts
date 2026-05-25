@@ -1,0 +1,14 @@
+{
+  "name": "shelbyscout-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "cd shelbyscout && npm run dev",
+    "build": "cd shelbyscout && npm run build",
+    "lint": "cd shelbyscout && npm run lint",
+    "start": "cd shelbyscout && npm run start",
+    "prisma:generate": "cd shelbyscout && npm run prisma:generate",
+    "db:push": "cd shelbyscout && npm run db:push",
+    "db:seed": "cd shelbyscout && npm run db:seed",
+    "db:studio": "cd shelbyscout && npm run db:studio"
+  }
+}
