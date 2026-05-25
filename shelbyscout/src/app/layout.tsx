@@ -6,6 +6,8 @@ import Providers from "@/components/Providers";
 import { authOptions } from "@/lib/auth";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "ShelbyScout | Decentralized Football Talent Clips",
   description:
@@ -17,7 +19,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession(authOptions);
+  let session = null;
+
+  try {
+    session = await getServerSession(authOptions);
+  } catch (error) {
+    console.error("Unable to load server session", error);
+  }
 
   return (
     <html lang="en" className="h-full antialiased">
