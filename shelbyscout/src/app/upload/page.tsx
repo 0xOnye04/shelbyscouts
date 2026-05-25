@@ -28,7 +28,8 @@ type ManagedVideo = {
   isShelbyStored: boolean;
 };
 
-const MAX_VIDEO_BYTES = 75 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 4 * 1024 * 1024;
+const MAX_VIDEO_SIZE_LABEL = "4 MB";
 
 function uploadClip(
   formData: FormData,
@@ -56,7 +57,14 @@ function uploadClip(
       }
 
       if (request.status < 200 || request.status >= 300) {
-        reject(new Error(payload.error || "Upload failed."));
+        reject(
+          new Error(
+            payload.error ||
+              (request.status === 413
+                ? `This clip is too large for the deployed upload route. Use a clip up to ${MAX_VIDEO_SIZE_LABEL}.`
+                : "Upload failed. Check your Shelby and database configuration.")
+          )
+        );
         return;
       }
 
@@ -119,7 +127,7 @@ export default function UploadPage() {
 
     const oversizedFile = files.find((selectedFile) => selectedFile.size > MAX_VIDEO_BYTES);
     if (oversizedFile) {
-      setError("Choose a short clip up to 75 MB for faster Shelby uploads.");
+      setError(`Choose a short clip up to ${MAX_VIDEO_SIZE_LABEL} for this deployed upload route.`);
       return;
     }
 
@@ -349,7 +357,7 @@ export default function UploadPage() {
                 selectedFiles.some(
                   (selectedFile) => selectedFile.size > MAX_VIDEO_BYTES
                 )
-                  ? "Choose a short clip up to 75 MB for faster Shelby uploads."
+                  ? `Choose a short clip up to ${MAX_VIDEO_SIZE_LABEL} for this deployed upload route.`
                   : null
               );
             }}

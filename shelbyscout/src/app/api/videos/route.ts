@@ -7,7 +7,7 @@ import {
   uploadVideoBytesToShelby,
 } from "@/lib/shelbystream";
 
-const MAX_VIDEO_BYTES = 75 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 4 * 1024 * 1024;
 const DEMO_VIDEO_URL =
   "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4";
 
@@ -77,7 +77,10 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_VIDEO_BYTES) {
     return NextResponse.json(
-      { error: "Upload short clips up to 75 MB so ShelbyScout can process them quickly." },
+      {
+        error:
+          "This deployed upload path supports clips up to 4 MB. Compress the clip or upload a shorter highlight.",
+      },
       { status: 413 }
     );
   }
@@ -146,7 +149,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error(error);
     const message =
-      error instanceof Error && process.env.NODE_ENV !== "production"
+      error instanceof Error
         ? error.message
         : "Unable to upload video.";
 
