@@ -10,6 +10,7 @@
     "postinstall": "npm --prefix shelbyscout install",
     "dev": "npm --prefix shelbyscout run dev",
     "build": "npm --prefix shelbyscout run build",
+    "vercel-build": "npm --prefix shelbyscout run vercel-build",
     "lint": "npm --prefix shelbyscout run lint",
     "start": "npm --prefix shelbyscout run start",
     "prisma:generate": "npm --prefix shelbyscout run prisma:generate",
