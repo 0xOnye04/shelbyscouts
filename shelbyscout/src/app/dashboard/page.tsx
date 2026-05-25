@@ -2,30 +2,50 @@ import { prisma } from "@/lib/prisma";
 import { ScoutDashboard } from "@/components/ScoutDashboard";
 import { samplePlayers } from "@/lib/sample-data";
 
+export const dynamic = "force-dynamic";
+
+type DashboardPlayer = {
+  id: string;
+  name?: string | null;
+  position?: string | null;
+  rating: number;
+  popularity: number;
+  profileImage?: string | null;
+  bio?: string | null;
+  nationality?: string | null;
+  academyClub?: string | null;
+};
+
 export const metadata = {
   title: "Discover Clips | ShelbyScout",
   description: "Short football clips, performance data, and scouting filters for clubs.",
 };
 
 export default async function DashboardPage() {
-  const players = process.env.DATABASE_URL
-    ? await prisma.user.findMany({
-        where: { role: "PLAYER" },
-        orderBy: { popularity: "desc" },
-        take: 20,
-        select: {
-          id: true,
-          name: true,
-          position: true,
-          rating: true,
-          popularity: true,
-          profileImage: true,
-          bio: true,
-          nationality: true,
-          academyClub: true,
-        },
-      })
-    : samplePlayers;
+  let players: DashboardPlayer[] = samplePlayers;
+
+  if (process.env.DATABASE_URL) {
+    try {
+      players = await prisma.user.findMany({
+          where: { role: "PLAYER" },
+          orderBy: { popularity: "desc" },
+          take: 20,
+          select: {
+            id: true,
+            name: true,
+            position: true,
+            rating: true,
+            popularity: true,
+            profileImage: true,
+            bio: true,
+            nationality: true,
+            academyClub: true,
+          },
+        });
+    } catch (error) {
+      console.error("Unable to load dashboard players", error);
+    }
+  }
 
   return (
     <div className="space-y-8 py-10">

@@ -3,6 +3,45 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSamplePlayer, getSampleVideosForPlayer } from "@/lib/sample-data";
 
+export const dynamic = "force-dynamic";
+
+type PlayerVideo = {
+  id: string;
+  title: string;
+  description?: string | null;
+  url: string;
+  thumbnailUrl: string;
+  storageProvider?: string | null;
+  storageProof?: string | null;
+  isShelbyStored?: boolean;
+};
+
+type PlayerProfile = {
+  id: string;
+  name?: string | null;
+  role?: string | null;
+  bio?: string | null;
+  position?: string | null;
+  age?: number | null;
+  nationality?: string | null;
+  height?: string | null;
+  preferredFoot?: string | null;
+  academyClub?: string | null;
+  socialInstagram?: string | null;
+  socialX?: string | null;
+  socialTikTok?: string | null;
+  socialYouTube?: string | null;
+  rating: number;
+  speed: number;
+  agility: number;
+  goals: number;
+  assists: number;
+  profileImage?: string | null;
+  coverImage?: string | null;
+  popularity: number;
+  videos?: PlayerVideo[];
+};
+
 export const metadata = {
   title: "Player profile | ShelbyScout",
   description: "View player stats, short clips, highlight videos, and scouting profile.",
@@ -14,20 +53,30 @@ export default async function PlayerProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const player = process.env.DATABASE_URL
-    ? await prisma.user.findUnique({
-        where: { id },
-        include: { videos: { orderBy: { uploadedAt: "desc" } } },
-      })
-    : getSamplePlayer(id);
+  let player: PlayerProfile | undefined = getSamplePlayer(id);
+  let databaseAvailable = false;
 
-  const videos = process.env.DATABASE_URL
+  if (process.env.DATABASE_URL) {
+    try {
+      const dbPlayer = await prisma.user.findUnique({
+          where: { id },
+          include: { videos: { orderBy: { uploadedAt: "desc" } } },
+        });
+
+      player = dbPlayer ?? undefined;
+      databaseAvailable = true;
+    } catch (error) {
+      console.error("Unable to load player profile", error);
+    }
+  }
+
+  const videos: PlayerVideo[] = databaseAvailable
     ? player && "videos" in player
-      ? player.videos
+      ? player.videos ?? []
       : []
     : getSampleVideosForPlayer(id);
 
-  if (!player || (process.env.DATABASE_URL && "role" in player && player.role !== "PLAYER")) {
+  if (!player || (databaseAvailable && "role" in player && player.role !== "PLAYER")) {
     notFound();
   }
 
@@ -59,7 +108,7 @@ export default async function PlayerProfilePage({
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-transparent" />
           <div className="absolute bottom-8 left-8 flex flex-col gap-4 text-white">
             <p className="uppercase tracking-[0.35em] text-cyan-300/80">{player.position || "Player"}</p>
-            <h1 className="text-5xl font-semibold tracking-tight">{player.name}</h1>
+            <h1 className="text-5xl font-semibold tracking-tight">{player.name || "Player"}</h1>
             <p className="max-w-2xl text-sm leading-6 text-slate-200/80">{player.bio}</p>
           </div>
         </div>

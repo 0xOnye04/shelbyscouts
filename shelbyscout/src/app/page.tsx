@@ -6,33 +6,66 @@ import { samplePlayers, sampleVideos } from "@/lib/sample-data";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const players = process.env.DATABASE_URL
-    ? await prisma.user.findMany({
-        where: { role: "PLAYER" },
-        orderBy: { popularity: "desc" },
-        take: 4,
-        select: {
-          id: true,
-          name: true,
-          position: true,
-          rating: true,
-          popularity: true,
-          profileImage: true,
-          bio: true,
-          nationality: true,
-          academyClub: true,
-        },
-      })
-    : samplePlayers;
+type HomePlayer = {
+  id: string;
+  name?: string | null;
+  position?: string | null;
+  rating: number;
+  popularity: number;
+  profileImage?: string | null;
+  bio?: string | null;
+  nationality?: string | null;
+  academyClub?: string | null;
+};
 
-  const videos = process.env.DATABASE_URL
-    ? await prisma.video.findMany({
-        orderBy: { uploadedAt: "desc" },
-        take: 4,
-        include: { player: true },
-      })
-    : sampleVideos;
+type HomeVideo = {
+  id: string;
+  title: string;
+  description?: string | null;
+  thumbnailUrl: string;
+  url: string;
+  playerName?: string | null;
+  player?: {
+    name?: string | null;
+  } | null;
+};
+
+export default async function Home() {
+  let players: HomePlayer[] = samplePlayers;
+  let videos: HomeVideo[] = sampleVideos;
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const [dbPlayers, dbVideos] = await Promise.all([
+        prisma.user.findMany({
+          where: { role: "PLAYER" },
+          orderBy: { popularity: "desc" },
+          take: 4,
+          select: {
+            id: true,
+            name: true,
+            position: true,
+            rating: true,
+            popularity: true,
+            profileImage: true,
+            bio: true,
+            nationality: true,
+            academyClub: true,
+          },
+        }),
+        prisma.video.findMany({
+          orderBy: { uploadedAt: "desc" },
+          take: 4,
+          include: { player: true },
+        }),
+      ]);
+
+      players = dbPlayers;
+      videos = dbVideos;
+    } catch (error) {
+      console.error("Unable to load homepage data", error);
+    }
+  }
 
   return (
     <div className="space-y-16 py-10">
