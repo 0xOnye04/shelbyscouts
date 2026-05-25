@@ -7,6 +7,7 @@ import {
   AptosWalletPanel,
   useAptosWallet,
 } from "@/components/AptosWalletPanel";
+import { uploadVideoDirectlyToShelby } from "@/lib/shelby-browser";
 
 type UploadResponse = {
   queued?: boolean;
@@ -28,53 +29,8 @@ type ManagedVideo = {
   isShelbyStored: boolean;
 };
 
-const MAX_VIDEO_BYTES = 4 * 1024 * 1024;
-const MAX_VIDEO_SIZE_LABEL = "4 MB";
-
-function uploadClip(
-  formData: FormData,
-  onProgress: (progress: number) => void
-) {
-  return new Promise<UploadResponse>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-
-    request.open("POST", "/api/videos");
-    request.upload.onprogress = (event) => {
-      if (!event.lengthComputable) {
-        onProgress(35);
-        return;
-      }
-
-      onProgress(Math.max(10, Math.round((event.loaded / event.total) * 90)));
-    };
-    request.onload = () => {
-      let payload: UploadResponse & { error?: string } = {};
-
-      try {
-        payload = JSON.parse(request.responseText || "{}");
-      } catch {
-        payload = {};
-      }
-
-      if (request.status < 200 || request.status >= 300) {
-        reject(
-          new Error(
-            payload.error ||
-              (request.status === 413
-                ? `This clip is too large for the deployed upload route. Use a clip up to ${MAX_VIDEO_SIZE_LABEL}.`
-                : "Upload failed. Check your Shelby and database configuration.")
-          )
-        );
-        return;
-      }
-
-      resolve(payload);
-    };
-    request.onerror = () =>
-      reject(new Error("Unable to reach the upload service."));
-    request.send(formData);
-  });
-}
+const MAX_VIDEO_BYTES = 250 * 1024 * 1024;
+const MAX_VIDEO_SIZE_LABEL = "250 MB";
 
 export default function UploadPage() {
   const { data: session } = useSession();
@@ -127,7 +83,7 @@ export default function UploadPage() {
 
     const oversizedFile = files.find((selectedFile) => selectedFile.size > MAX_VIDEO_BYTES);
     if (oversizedFile) {
-      setError(`Choose a short clip up to ${MAX_VIDEO_SIZE_LABEL} for this deployed upload route.`);
+      setError(`Choose a video clip up to ${MAX_VIDEO_SIZE_LABEL}.`);
       return;
     }
 
@@ -142,33 +98,48 @@ export default function UploadPage() {
       let lastPayload: UploadResponse | null = null;
 
       for (const [index, selectedFile] of files.entries()) {
-        const formData = new FormData();
-        formData.append(
-          "title",
-          files.length > 1 ? `${title} ${index + 1}` : title
-        );
-        formData.append("description", description);
-        formData.append("videoFile", selectedFile);
-        formData.append("walletAddress", wallet.address);
-        formData.append("walletName", wallet.name || "Aptos wallet");
+        const clipTitle = files.length > 1 ? `${title} ${index + 1}` : title;
+        const directUpload = await uploadVideoDirectlyToShelby({
+          file: selectedFile,
+          title: clipTitle,
+          description,
+          walletAddress: wallet.address,
+          onProgress: ({ phase, progress }) => {
+            const statusByPhase = {
+              preparing: `Preparing Shelby proof ${index + 1} of ${files.length}...`,
+              registering: `Registering clip ${index + 1} on Shelby...`,
+              uploading: `Uploading clip ${index + 1} directly to Shelby...`,
+              finalizing: `Finalizing clip ${index + 1} of ${files.length}...`,
+            };
+            const fileShare = 100 / files.length;
+            const totalProgress = Math.round(
+              index * fileShare + (progress / 100) * fileShare
+            );
 
-        lastPayload = await uploadClip(formData, (progress) => {
-          const fileShare = 100 / files.length;
-          const totalProgress = Math.round(index * fileShare + (progress / 100) * fileShare);
-          setUploadProgress(Math.min(95, totalProgress));
-          setStatus(`Sending clip ${index + 1} of ${files.length}...`);
+            setUploadProgress(Math.min(99, totalProgress));
+            setStatus(statusByPhase[phase]);
+          },
         });
+
+        lastPayload = {
+          video: {
+            url: directUpload.video.url,
+            storageAssetId: directUpload.upload.storageAssetId,
+            storageProof: directUpload.upload.storageProof,
+            isShelbyStored: true,
+          },
+        };
       }
 
-      setUploadProgress(95);
-      setStatus("Clips accepted. Shelby storage is finishing in the background...");
+      setUploadProgress(100);
+      setStatus("Clips uploaded directly to Shelby storage.");
 
       const video = lastPayload?.video;
       setStreamUrl(video?.url ?? null);
       setStorageProof(
-        "Shelby upload accepted. Refresh the player profile shortly to see final storage proofs."
+        video?.storageProof ||
+          "Shelby upload complete. Refresh the player profile to see storage proofs."
       );
-      setUploadProgress(100);
       await loadVideos();
     } catch (uploadError) {
       setError(
@@ -357,7 +328,7 @@ export default function UploadPage() {
                 selectedFiles.some(
                   (selectedFile) => selectedFile.size > MAX_VIDEO_BYTES
                 )
-                  ? `Choose a short clip up to ${MAX_VIDEO_SIZE_LABEL} for this deployed upload route.`
+                  ? `Choose a video clip up to ${MAX_VIDEO_SIZE_LABEL}.`
                   : null
               );
             }}

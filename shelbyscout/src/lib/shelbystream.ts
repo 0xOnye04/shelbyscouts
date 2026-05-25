@@ -18,6 +18,17 @@ export type ShelbyFileUploadResult = {
   isShelbyStored: boolean;
 };
 
+export type PreparedShelbyUpload = {
+  accountAddress: string;
+  blobName: string;
+  url: string;
+  thumbnailUrl: string;
+  storageProvider: "shelby";
+  storageAssetId: string;
+  storageProof: string;
+  isShelbyStored: boolean;
+};
+
 export const DEFAULT_VIDEO_THUMBNAIL_URL =
   "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80";
 
@@ -115,6 +126,17 @@ function toHex(bytes?: Uint8Array) {
     .join("")}`;
 }
 
+function getShelbyStorageProof(
+  accountAddress: string,
+  blobName: string,
+  blobMerkleRoot?: string
+) {
+  return (
+    blobMerkleRoot ||
+    getShelbyBlobExplorerUrl(getShelbyNetwork(), accountAddress, blobName)
+  );
+}
+
 async function getShelbyTimestamps(client: ShelbyNodeClient) {
   const ledgerInfo = await client.aptos.getLedgerInfo();
   const ledgerMicros = BigInt(ledgerInfo.ledger_timestamp);
@@ -199,11 +221,82 @@ export async function uploadVideoBytesToShelby({
   });
   const accountAddress = signer.accountAddress.toString();
   const storageAssetId = `${accountAddress}/${blobName}`;
-  const storageProof =
-    toHex(metadata?.blobMerkleRoot) ||
-    getShelbyBlobExplorerUrl(getShelbyNetwork(), accountAddress, blobName);
+  const storageProof = getShelbyStorageProof(
+    accountAddress,
+    blobName,
+    toHex(metadata?.blobMerkleRoot)
+  );
 
   return {
+    url: `/api/shelby/blob?account=${encodeURIComponent(accountAddress)}&name=${encodeURIComponent(blobName)}`,
+    thumbnailUrl: DEFAULT_VIDEO_THUMBNAIL_URL,
+    storageProvider: "shelby",
+    storageAssetId,
+    storageProof,
+    isShelbyStored: true,
+  };
+}
+
+export async function prepareShelbyVideoUpload({
+  fileName,
+  title,
+  walletAddress,
+  fileSize,
+  blobMerkleRoot,
+}: {
+  fileName: string;
+  title: string;
+  walletAddress?: string;
+  fileSize: number;
+  blobMerkleRoot: string;
+}): Promise<PreparedShelbyUpload> {
+  const shelbyApiKey = getShelbyApiKey();
+  const signer = createShelbySigner();
+
+  if (!shelbyApiKey || !signer) {
+    throw new Error(
+      "SHELBY_API_KEY and SHELBY_PRIVATE_KEY are required for direct Shelby uploads."
+    );
+  }
+
+  const client = createShelbyClient();
+  const blobName = createBlobName({ name: fileName }, title, walletAddress, "videos");
+  const { blobExpirationMicros, transactionExpirationSeconds } =
+    await getShelbyTimestamps(client);
+
+  const existingBlobMetadata = await client.coordination.getBlobMetadata({
+    account: signer.accountAddress,
+    name: blobName,
+  });
+
+  if (!existingBlobMetadata) {
+    const { transaction } = await client.coordination.registerBlob({
+      account: signer,
+      blobName,
+      blobMerkleRoot,
+      size: fileSize,
+      expirationMicros: blobExpirationMicros,
+      options: {
+        build: {
+          options: {
+            expireTimestamp: transactionExpirationSeconds,
+          },
+        },
+      },
+    });
+
+    await client.aptos.waitForTransaction({
+      transactionHash: transaction.hash,
+    });
+  }
+
+  const accountAddress = signer.accountAddress.toString();
+  const storageAssetId = `${accountAddress}/${blobName}`;
+  const storageProof = getShelbyStorageProof(accountAddress, blobName, blobMerkleRoot);
+
+  return {
+    accountAddress,
+    blobName,
     url: `/api/shelby/blob?account=${encodeURIComponent(accountAddress)}&name=${encodeURIComponent(blobName)}`,
     thumbnailUrl: DEFAULT_VIDEO_THUMBNAIL_URL,
     storageProvider: "shelby",
@@ -262,9 +355,11 @@ export async function uploadImageFileToShelby({
   });
   const accountAddress = signer.accountAddress.toString();
   const storageAssetId = `${accountAddress}/${blobName}`;
-  const storageProof =
-    toHex(metadata?.blobMerkleRoot) ||
-    getShelbyBlobExplorerUrl(getShelbyNetwork(), accountAddress, blobName);
+  const storageProof = getShelbyStorageProof(
+    accountAddress,
+    blobName,
+    toHex(metadata?.blobMerkleRoot)
+  );
 
   return {
     url: `/api/shelby/blob?account=${encodeURIComponent(accountAddress)}&name=${encodeURIComponent(blobName)}`,
